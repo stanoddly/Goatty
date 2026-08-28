@@ -1,11 +1,16 @@
 #include "terminalgroup.h"
 
+#include <QApplication>
 #include <QDir>
+#include <QDrag>
+#include <QEvent>
 #include <QFile>
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMimeData>
+#include <QMouseEvent>
 #include <QString>
 #include <QTabBar>
 #include <QTabWidget>
@@ -57,6 +62,7 @@ TerminalGroup::TerminalGroup(QWidget *parent)
     m_terminals->setTabsClosable(true);
     m_terminals->tabBar()->setExpanding(false);
     m_terminals->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_terminals->tabBar()->installEventFilter(this);
 
     QToolButton *newTerminalButton = new QToolButton(m_terminals);
     newTerminalButton->setText(QStringLiteral("+"));
@@ -103,17 +109,11 @@ void TerminalGroup::addTerminal()
         terminal->setShellProgram(shell);
     }
 
-    connect(terminal, SIGNAL(finished()), this, SLOT(terminalFinished()));
-    connect(terminal, SIGNAL(titleChanged()), this, SLOT(terminalStateChanged()));
-    connect(terminal, SIGNAL(currentDirectoryChanged(QString)), this, SLOT(terminalStateChanged()));
-
     int index = m_terminals->addTab(terminal, QStringLiteral("Shell %1").arg(m_nextTerminalNumber++));
     m_terminals->setCurrentIndex(index);
     QTimer *titleTimer = new QTimer(terminal);
     titleTimer->setInterval(1000);
-    connect(titleTimer, &QTimer::timeout, this, [this, terminal]() {
-        updateTerminalTitle(terminal);
-    });
+    monitorTerminal(terminal, titleTimer);
     titleTimer->start();
 
     QTimer::singleShot(0, terminal, [this, terminal]() {
@@ -121,6 +121,55 @@ void TerminalGroup::addTerminal()
         terminal->setFocus();
         updateTerminalTitle(terminal);
     });
+}
+
+bool TerminalGroup::moveDraggedTerminalTo(TerminalGroup *destination)
+{
+    QTermWidget *terminal = qobject_cast<QTermWidget *>(m_draggedTerminal.data());
+    if (terminal == nullptr || destination == nullptr || destination == this)
+    {
+        return false;
+    }
+
+    int index = m_terminals->indexOf(terminal);
+    if (index < 0)
+    {
+        return false;
+    }
+
+    QTimer *titleTimer = m_titleTimers.take(terminal);
+    if (titleTimer == nullptr)
+    {
+        return false;
+    }
+
+    QString title = m_terminals->tabText(index);
+    bool hasManualTitle = m_terminalNames.contains(terminal);
+    QString manualTitle = m_terminalNames.take(terminal);
+    QObject::disconnect(terminal, nullptr, this, nullptr);
+    QObject::disconnect(titleTimer, nullptr, this, nullptr);
+    m_terminals->removeTab(index);
+
+    int destinationIndex = destination->m_terminals->addTab(terminal, title);
+    if (hasManualTitle)
+    {
+        destination->m_terminalNames.insert(terminal, manualTitle);
+    }
+    destination->monitorTerminal(terminal, titleTimer);
+    destination->m_terminals->setCurrentIndex(destinationIndex);
+    if (destination->m_dragInProgress && destination->m_dragOriginalIndex >= 0 && destination->m_dragOriginalIndex < destination->m_terminals->count())
+    {
+        destination->m_terminals->tabBar()->moveTab(destinationIndex, destination->m_dragOriginalIndex);
+    }
+    m_draggedTerminal = nullptr;
+    destination->m_draggedTerminal = terminal;
+
+    if (m_terminals->count() == 0 && !m_dragInProgress)
+    {
+        emit emptied();
+    }
+
+    return true;
 }
 
 void TerminalGroup::closeCurrentTerminal()
@@ -153,6 +202,82 @@ void TerminalGroup::focusCurrentTerminal()
     }
 }
 
+bool TerminalGroup::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched != m_terminals->tabBar())
+    {
+        return QWidget::eventFilter(watched, event);
+    }
+
+    if (event->type() == QEvent::MouseButtonPress)
+    {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+        if (mouseEvent->button() == Qt::LeftButton)
+        {
+            int index = m_terminals->tabBar()->tabAt(mouseEvent->position().toPoint());
+            m_draggedTerminal = m_terminals->widget(index);
+            m_dragStartPosition = mouseEvent->position().toPoint();
+            m_dragOriginalIndex = index;
+        }
+    }
+    else if (event->type() == QEvent::MouseButtonRelease)
+    {
+        m_draggedTerminal = nullptr;
+        m_dragOriginalIndex = -1;
+    }
+    else if (event->type() == QEvent::MouseMove)
+    {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+        if ((mouseEvent->buttons() & Qt::LeftButton) == 0)
+        {
+            m_draggedTerminal = nullptr;
+            m_dragOriginalIndex = -1;
+        }
+        else if (m_draggedTerminal != nullptr && (mouseEvent->position().toPoint() - m_dragStartPosition).manhattanLength() >= QApplication::startDragDistance()
+            && !m_terminals->tabBar()->rect().contains(mouseEvent->position().toPoint()))
+        {
+            int index = m_terminals->indexOf(m_draggedTerminal);
+            if (index < 0)
+            {
+                m_draggedTerminal = nullptr;
+                return true;
+            }
+
+            QPointer<QWidget> draggedTerminal = m_draggedTerminal;
+            int originalIndex = m_dragOriginalIndex;
+            QMouseEvent releaseEvent(QEvent::MouseButtonRelease, mouseEvent->position(), mouseEvent->globalPosition(), Qt::LeftButton, Qt::NoButton, mouseEvent->modifiers());
+            QApplication::sendEvent(m_terminals->tabBar(), &releaseEvent);
+            m_draggedTerminal = draggedTerminal;
+            m_dragOriginalIndex = originalIndex;
+
+            QDrag drag(this);
+            QMimeData *mimeData = new QMimeData;
+            mimeData->setData(QString::fromLatin1(TerminalDragMimeType), QByteArray());
+            drag.setMimeData(mimeData);
+            m_dragInProgress = true;
+            Qt::DropAction dropAction = drag.exec(Qt::MoveAction);
+            m_dragInProgress = false;
+            if (dropAction != Qt::MoveAction && draggedTerminal != nullptr)
+            {
+                int currentIndex = m_terminals->indexOf(draggedTerminal);
+                if (currentIndex >= 0 && originalIndex >= 0 && originalIndex < m_terminals->count() && currentIndex != originalIndex)
+                {
+                    m_terminals->tabBar()->moveTab(currentIndex, originalIndex);
+                }
+            }
+            m_draggedTerminal = nullptr;
+            m_dragOriginalIndex = -1;
+            if (m_terminals->count() == 0)
+            {
+                emit emptied();
+            }
+            return true;
+        }
+    }
+
+    return QWidget::eventFilter(watched, event);
+}
+
 void TerminalGroup::closeTerminal(int index)
 {
     QWidget *terminal = m_terminals->widget(index);
@@ -163,12 +288,24 @@ void TerminalGroup::closeTerminal(int index)
 
     m_terminals->removeTab(index);
     m_terminalNames.remove(qobject_cast<QTermWidget *>(terminal));
+    m_titleTimers.remove(qobject_cast<QTermWidget *>(terminal));
     terminal->deleteLater();
 
-    if (m_terminals->count() == 0)
+    if (m_terminals->count() == 0 && !m_dragInProgress)
     {
         emit emptied();
     }
+}
+
+void TerminalGroup::monitorTerminal(QTermWidget *terminal, QTimer *titleTimer)
+{
+    connect(terminal, SIGNAL(finished()), this, SLOT(terminalFinished()));
+    connect(terminal, SIGNAL(titleChanged()), this, SLOT(terminalStateChanged()));
+    connect(terminal, SIGNAL(currentDirectoryChanged(QString)), this, SLOT(terminalStateChanged()));
+    connect(titleTimer, &QTimer::timeout, this, [this, terminal]() {
+        updateTerminalTitle(terminal);
+    });
+    m_titleTimers.insert(terminal, titleTimer);
 }
 
 void TerminalGroup::renameTerminal(int index)
