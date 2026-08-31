@@ -4,11 +4,16 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QEvent>
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QKeySequence>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMimeData>
 #include <QShortcut>
 #include <QString>
 #include <QTabBar>
@@ -27,6 +32,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_groups->setTabBarAutoHide(true);
     m_groups->tabBar()->setExpanding(false);
     m_groups->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_groups->tabBar()->setAcceptDrops(true);
+    m_groups->tabBar()->installEventFilter(this);
     setCentralWidget(m_groups);
 
     connect(m_groups, &QTabWidget::tabCloseRequested, this, &MainWindow::closeGroup);
@@ -80,6 +87,116 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     addGroup();
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched != m_groups->tabBar())
+    {
+        return QMainWindow::eventFilter(watched, event);
+    }
+
+    if (event->type() == QEvent::DragEnter)
+    {
+        QDragEnterEvent *dragEvent = static_cast<QDragEnterEvent *>(event);
+        TerminalGroup *source = qobject_cast<TerminalGroup *>(dragEvent->source());
+        if (source != nullptr && dragEvent->mimeData()->hasFormat(QString::fromLatin1(TerminalGroup::TerminalDragMimeType)))
+        {
+            m_terminalDragSource = source;
+            m_terminalDragCurrentGroup = source;
+            dragEvent->setDropAction(Qt::MoveAction);
+            dragEvent->accept();
+        }
+        return true;
+    }
+
+    if (event->type() == QEvent::DragMove)
+    {
+        QDragMoveEvent *dragEvent = static_cast<QDragMoveEvent *>(event);
+        TerminalGroup *source = qobject_cast<TerminalGroup *>(dragEvent->source());
+        int index = m_groups->tabBar()->tabAt(dragEvent->position().toPoint());
+        TerminalGroup *destination = qobject_cast<TerminalGroup *>(m_groups->widget(index));
+        if (source == m_terminalDragSource && destination != nullptr && destination != source && dragEvent->mimeData()->hasFormat(QString::fromLatin1(TerminalGroup::TerminalDragMimeType))
+            && previewDraggedTerminalIn(destination))
+        {
+            dragEvent->setDropAction(Qt::MoveAction);
+            dragEvent->accept();
+        }
+        else
+        {
+            restoreDraggedTerminal();
+            dragEvent->ignore();
+        }
+        return true;
+    }
+
+    if (event->type() == QEvent::DragLeave)
+    {
+        restoreDraggedTerminal();
+        m_terminalDragSource = nullptr;
+        m_terminalDragCurrentGroup = nullptr;
+        return true;
+    }
+
+    if (event->type() == QEvent::Drop)
+    {
+        QDropEvent *dropEvent = static_cast<QDropEvent *>(event);
+        TerminalGroup *source = qobject_cast<TerminalGroup *>(dropEvent->source());
+        int index = m_groups->tabBar()->tabAt(dropEvent->position().toPoint());
+        TerminalGroup *destination = qobject_cast<TerminalGroup *>(m_groups->widget(index));
+        if (source == m_terminalDragSource && destination != nullptr && destination != source && dropEvent->mimeData()->hasFormat(QString::fromLatin1(TerminalGroup::TerminalDragMimeType))
+            && previewDraggedTerminalIn(destination))
+        {
+            destination->focusCurrentTerminal();
+            dropEvent->setDropAction(Qt::MoveAction);
+            dropEvent->accept();
+        }
+        else
+        {
+            restoreDraggedTerminal();
+            dropEvent->ignore();
+        }
+        m_terminalDragSource = nullptr;
+        m_terminalDragCurrentGroup = nullptr;
+        return true;
+    }
+
+    return QMainWindow::eventFilter(watched, event);
+}
+
+bool MainWindow::previewDraggedTerminalIn(TerminalGroup *destination)
+{
+    if (m_terminalDragCurrentGroup == nullptr || destination == nullptr)
+    {
+        return false;
+    }
+
+    if (m_terminalDragCurrentGroup != destination)
+    {
+        if (!m_terminalDragCurrentGroup->moveDraggedTerminalTo(destination))
+        {
+            return false;
+        }
+        m_terminalDragCurrentGroup = destination;
+    }
+
+    m_groups->setCurrentWidget(destination);
+    return true;
+}
+
+void MainWindow::restoreDraggedTerminal()
+{
+    if (m_terminalDragSource == nullptr)
+    {
+        return;
+    }
+
+    if (m_terminalDragCurrentGroup != nullptr && m_terminalDragCurrentGroup != m_terminalDragSource
+        && m_terminalDragCurrentGroup->moveDraggedTerminalTo(m_terminalDragSource))
+    {
+        m_terminalDragCurrentGroup = m_terminalDragSource;
+    }
+    m_groups->setCurrentWidget(m_terminalDragSource);
 }
 
 void MainWindow::addGroup()
