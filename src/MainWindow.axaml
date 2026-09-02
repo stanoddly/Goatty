@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Goatty.MainWindow"
+        Title="Goatty"
+        Width="1000"
+        Height="700"
+        MinWidth="480"
+        MinHeight="320"
+        Background="#2E3440">
+  <Grid RowDefinitions="Auto,*">
+    <Border x:Name="GroupBar" IsVisible="False" Background="#3B4252" Padding="4,2">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="GroupHeaders" Orientation="Horizontal" Spacing="3" />
+      </ScrollViewer>
+    </Border>
+    <Grid x:Name="GroupContent" Grid.Row="1" />
+  </Grid>
+</Window>
