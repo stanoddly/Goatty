@@ -2,7 +2,7 @@
 
 Goatty is a minimal terminal emulator built with [Avalonia](https://avaloniaui.net/) and [Iciclecreek.Avalonia.Terminal](https://github.com/tomlm/Iciclecreek.Avalonia.Terminal).
 
-Goatty provides one window with terminal groups and dark-themed terminal tabs. The group bar stays hidden until a second group is created. Groups start with the launch directory's name and can be renamed from a context menu or by double-clicking a visible group tab.
+Goatty provides one window with terminal groups and dark-themed terminal tabs. Terminal tabs live in the window's title bar: Goatty draws its own minimize, maximize and close buttons on the right, with a drag strip next to them for moving the window, while Avalonia keeps drawing the window border, shadow and resize edges. The group bar stays hidden until a second group is created. Groups start with the launch directory's name and can be renamed from a context menu or by double-clicking a visible group tab.
 
 Terminal names follow their current directory and foreground process or application-provided title. Rename a terminal by double-clicking its tab or using its context menu; reset its name to resume automatic updates. Drag a terminal tab onto another group tab to move it, or onto another terminal tab to position it before that terminal. Double-click empty terminal-bar space to create a terminal, and close a group's final terminal to remove the group. Closing the final group exits Goatty.
 
