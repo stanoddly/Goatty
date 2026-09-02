@@ -17,10 +17,12 @@ Terminal shortcuts apply to the active group:
 ## Dependencies
 
 - .NET 10 SDK
-- Avalonia 12.0.2
+- Avalonia 12.1.1
 - Iciclecreek.Avalonia.Terminal 3.1.0
 
 NuGet restores the Avalonia, XTerm.NET, and Porta.Pty dependencies, including the native PTY library used on Linux and macOS.
+
+On Linux, Goatty uses Avalonia's native Wayland backend when a compositor is available and falls back to X11 otherwise.
 
 On Fedora, install the .NET 10 SDK if it is not already available:
 
