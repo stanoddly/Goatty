@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace Goatty;
@@ -23,24 +22,9 @@ public sealed partial class MainWindow : Window
 
         GroupBar.ContextMenu = CreateGroupBarContextMenu();
         GroupBar.DoubleTapped += OnGroupBarDoubleTapped;
-        DragArea.PointerPressed += OnDragAreaPointerPressed;
-        MinimizeButton.Click += (_, _) => WindowState = WindowState.Minimized;
-        MaximizeButton.Click += (_, _) => ToggleMaximized();
-        CloseButton.Click += (_, _) => Close();
-        UpdateMaximizeButton();
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         Opened += OnOpened;
         Closing += OnClosing;
-    }
-
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        base.OnPropertyChanged(change);
-        // a window state set in XAML is applied before the named controls exist
-        if (change.Property == WindowStateProperty && MaximizeIcon is not null)
-        {
-            UpdateMaximizeButton();
-        }
     }
 
     internal async Task AddGroupAsync()
@@ -48,7 +32,6 @@ public sealed partial class MainWindow : Window
         TerminalGroup group = new(this, CreateGroupName());
         _groups.Add(group);
         GroupHeaders.Children.Add(group.Header);
-        TerminalBarHost.Children.Add(group.TerminalBar);
         GroupContent.Children.Add(group);
         UpdateGroupBarVisibility();
         SelectGroup(group);
@@ -66,7 +49,6 @@ public sealed partial class MainWindow : Window
         group.CloseAllTerminals();
         _groups.Remove(group);
         GroupHeaders.Children.Remove(group.Header);
-        TerminalBarHost.Children.Remove(group.TerminalBar);
         GroupContent.Children.Remove(group);
 
         if (_groups.Count == 0)
@@ -92,7 +74,6 @@ public sealed partial class MainWindow : Window
         {
             bool selected = candidate == group;
             candidate.IsVisible = selected;
-            candidate.TerminalBar.IsVisible = selected;
             candidate.Header.SetSelected(selected);
         }
 
@@ -191,26 +172,6 @@ public sealed partial class MainWindow : Window
             e.Handled = true;
             _currentGroup?.SelectPreviousTerminal();
         }
-    }
-
-    private void OnDragAreaPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.GetCurrentPoint(DragArea).Properties.IsLeftButtonPressed)
-        {
-            BeginMoveDrag(e);
-        }
-    }
-
-    private void ToggleMaximized()
-    {
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-    }
-
-    private void UpdateMaximizeButton()
-    {
-        bool maximized = WindowState == WindowState.Maximized;
-        MaximizeIcon.Data = Geometry.Parse(maximized ? "M 0.5,3.5 H 7.5 V 10.5 H 0.5 Z M 2.5,3.5 V 0.5 H 10.5 V 8.5 H 7.5" : "M 0.5,0.5 H 10.5 V 10.5 H 0.5 Z");
-        ToolTip.SetTip(MaximizeButton, maximized ? "Restore" : "Maximize");
     }
 
     private ContextMenu CreateGroupBarContextMenu()

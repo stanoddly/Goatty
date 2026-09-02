@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace Goatty;
@@ -10,6 +11,7 @@ internal sealed class TerminalGroup : Grid
 {
     private readonly MainWindow _window;
     private readonly StackPanel _headers;
+    private readonly Grid _content;
     private readonly List<TerminalSession> _sessions = [];
     private TerminalSession? _currentSession;
     private int _nextTerminalNumber = 1;
@@ -19,6 +21,8 @@ internal sealed class TerminalGroup : Grid
     {
         _window = window;
         Header = new GroupTabHeader(this, title);
+        RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        RowDefinitions.Add(new RowDefinition(GridLength.Star));
 
         _headers = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3 };
         ScrollViewer headerScroller = new()
@@ -38,7 +42,7 @@ internal sealed class TerminalGroup : Grid
         headerPanel.Children.Add(addButton);
         headerPanel.Children.Add(headerScroller);
 
-        Border terminalBar = new() { Padding = new Thickness(4, 2), Child = headerPanel };
+        Border terminalBar = new() { Background = Brush.Parse("#3B4252"), Padding = new Thickness(4, 2), Child = headerPanel };
         terminalBar.DoubleTapped += async (_, e) =>
         {
             if (e.Source is not Button)
@@ -48,12 +52,14 @@ internal sealed class TerminalGroup : Grid
             }
         };
         terminalBar.ContextMenu = CreateTerminalBarContextMenu();
-        TerminalBar = terminalBar;
+
+        _content = new Grid();
+        SetRow(_content, 1);
+        Children.Add(terminalBar);
+        Children.Add(_content);
     }
 
     internal GroupTabHeader Header { get; }
-
-    internal Border TerminalBar { get; }
 
     internal int SessionCount => _sessions.Count;
 
@@ -76,7 +82,7 @@ internal sealed class TerminalGroup : Grid
         int index = before is null ? _sessions.Count : Math.Max(0, _sessions.IndexOf(before));
         _sessions.Insert(index, session);
         _headers.Children.Insert(index, session.Header);
-        Children.Add(session.Control);
+        _content.Children.Add(session.Control);
         session.Exited += OnSessionExited;
     }
 
@@ -89,7 +95,7 @@ internal sealed class TerminalGroup : Grid
 
         session.Exited -= OnSessionExited;
         _headers.Children.Remove(session.Header);
-        Children.Remove(session.Control);
+        _content.Children.Remove(session.Control);
 
         if (_currentSession == session)
         {
@@ -160,7 +166,7 @@ internal sealed class TerminalGroup : Grid
         session.Exited -= OnSessionExited;
         _sessions.RemoveAt(index);
         _headers.Children.Remove(session.Header);
-        Children.Remove(session.Control);
+        _content.Children.Remove(session.Control);
         session.Close();
 
         if (_sessions.Count == 0)
@@ -188,7 +194,7 @@ internal sealed class TerminalGroup : Grid
 
         _sessions.Clear();
         _headers.Children.Clear();
-        Children.Clear();
+        _content.Children.Clear();
         _currentSession = null;
     }
 
