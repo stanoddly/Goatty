@@ -12,25 +12,23 @@
     <SolidColorBrush x:Key="TerminalBackgroundBrush">#2E3440</SolidColorBrush>
     <SolidColorBrush x:Key="TabBarBrush">#3B4252</SolidColorBrush>
     <SolidColorBrush x:Key="TabBarBorderBrush">#2E3440</SolidColorBrush>
-    <SolidColorBrush x:Key="TabHoverBrush">#434C5E</SolidColorBrush>
-    <SolidColorBrush x:Key="TabSelectedBrush">#4C566A</SolidColorBrush>
+
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselected">Transparent</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselectedPointerOver">#434C5E</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselectedPressed">#434C5E</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelected">#4C566A</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelectedPointerOver">#4C566A</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelectedPressed">#4C566A</SolidColorBrush>
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
     <Style Selector="TabStrip">
       <Setter Property="Background" Value="Transparent" />
     </Style>
-    <Style Selector="TabStripItem:pointerover">
-      <Setter Property="Background" Value="{DynamicResource TabHoverBrush}" />
-    </Style>
-    <Style Selector="TabStripItem:selected">
-      <Setter Property="Background" Value="{DynamicResource TabSelectedBrush}" />
-    </Style>
     <Style Selector="Button.tab-close">
       <Setter Property="Width" Value="24" />
       <Setter Property="Height" Value="24" />
       <Setter Property="Padding" Value="0" />
-      <Setter Property="FontSize" Value="16" />
       <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="Button.new-terminal">

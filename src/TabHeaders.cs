@@ -1,8 +1,11 @@
 using System.ComponentModel;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Path = Avalonia.Controls.Shapes.Path;
 
 namespace Goatty;
 
@@ -45,7 +48,18 @@ internal static class TabHeader
             }
         };
 
-        Button closeButton = new() { Content = "×" };
+        // The multiplication sign sits on the font's math axis rather than the centre of the button, so the cross is drawn instead.
+        Path closeGlyph = new()
+        {
+            Data = Geometry.Parse("M 0,0 L 8,8 M 8,0 L 0,8"),
+            StrokeThickness = 1,
+            Stretch = Stretch.None,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        Button closeButton = new() { Content = closeGlyph };
+        closeGlyph[!Shape.StrokeProperty] = closeButton[!TemplatedControl.ForegroundProperty];
         ToolTip.SetTip(closeButton, item.CloseToolTip);
         closeButton.Classes.Add("tab-close");
         closeButton.Click += (_, _) => item.RequestClose();
