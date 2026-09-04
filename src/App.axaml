@@ -19,6 +19,9 @@
     <SolidColorBrush x:Key="TabItemHeaderBackgroundSelected">#4C566A</SolidColorBrush>
     <SolidColorBrush x:Key="TabItemHeaderBackgroundSelectedPointerOver">#4C566A</SolidColorBrush>
     <SolidColorBrush x:Key="TabItemHeaderBackgroundSelectedPressed">#4C566A</SolidColorBrush>
+
+    <SolidColorBrush x:Key="TabCloseGlyphBrush">#A3ADC2</SolidColorBrush>
+    <SolidColorBrush x:Key="TabCloseGlyphPointerOverBrush">#ECEFF4</SolidColorBrush>
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
@@ -29,7 +32,17 @@
       <Setter Property="Width" Value="24" />
       <Setter Property="Height" Value="24" />
       <Setter Property="Padding" Value="0" />
+    </Style>
+    <!-- Fluent paints the button's own template child, so the hover and pressed surfaces have to be cleared there rather than on the button. -->
+    <Style Selector="Button.tab-close /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.tab-close > Path">
+      <Setter Property="Stroke" Value="{DynamicResource TabCloseGlyphBrush}" />
+    </Style>
+    <Style Selector="Button.tab-close:pointerover > Path, Button.tab-close:pressed > Path">
+      <Setter Property="Stroke" Value="{DynamicResource TabCloseGlyphPointerOverBrush}" />
     </Style>
     <Style Selector="Button.new-terminal">
       <Setter Property="Width" Value="32" />

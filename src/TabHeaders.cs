@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
@@ -59,7 +58,6 @@ internal static class TabHeader
         };
 
         Button closeButton = new() { Content = closeGlyph };
-        closeGlyph[!Shape.StrokeProperty] = closeButton[!TemplatedControl.ForegroundProperty];
         ToolTip.SetTip(closeButton, item.CloseToolTip);
         closeButton.Classes.Add("tab-close");
         closeButton.Click += (_, _) => item.RequestClose();
