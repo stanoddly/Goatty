@@ -1,35 +1,39 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Layout;
-using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace Goatty;
 
-internal sealed class TerminalGroup : Grid
+internal sealed class TerminalGroup : ITabItem
 {
     private readonly MainWindow _window;
-    private readonly StackPanel _headers;
+    private readonly TabStrip _tabs;
     private readonly Grid _content;
-    private readonly List<TerminalSession> _sessions = [];
-    private TerminalSession? _currentSession;
+    private readonly ObservableCollection<TerminalSession> _sessions = [];
+    private string _title;
     private int _nextTerminalNumber = 1;
     private bool _closing;
+    private bool _updatingSelection;
 
     internal TerminalGroup(MainWindow window, string title)
     {
         _window = window;
-        Header = new GroupTabHeader(this, title);
-        RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        RowDefinitions.Add(new RowDefinition(GridLength.Star));
+        _title = title;
 
-        _headers = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3 };
-        ScrollViewer headerScroller = new()
+        _tabs = new TabStrip { ItemsSource = _sessions, ItemTemplate = TabHeader.Template };
+        _tabs.SelectionChanged += OnSelectionChanged;
+
+        ScrollViewer tabScroller = new()
         {
-            Content = _headers,
-            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+            Content = _tabs,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled
         };
 
         Button addButton = new() { Content = "+" };
@@ -37,13 +41,15 @@ internal sealed class TerminalGroup : Grid
         addButton.Classes.Add("new-terminal");
         addButton.Click += async (_, _) => await AddTerminalAsync();
 
-        DockPanel headerPanel = new();
+        DockPanel tabBarContent = new();
         DockPanel.SetDock(addButton, Dock.Right);
-        headerPanel.Children.Add(addButton);
-        headerPanel.Children.Add(headerScroller);
+        tabBarContent.Children.Add(addButton);
+        tabBarContent.Children.Add(tabScroller);
 
-        Border terminalBar = new() { Background = Brush.Parse("#3B4252"), Padding = new Thickness(4, 2), Child = headerPanel };
-        terminalBar.DoubleTapped += async (_, e) =>
+        Border tabBar = new() { Child = tabBarContent, BorderThickness = new Thickness(0, 0, 0, 1) };
+        tabBar[!Border.BackgroundProperty] = tabBar.GetResourceObservable("TabBarBrush").ToBinding();
+        tabBar[!Border.BorderBrushProperty] = tabBar.GetResourceObservable("TabBarBorderBrush").ToBinding();
+        tabBar.DoubleTapped += async (_, e) =>
         {
             if (e.Source is not Button)
             {
@@ -51,21 +57,102 @@ internal sealed class TerminalGroup : Grid
                 await AddTerminalAsync();
             }
         };
-        terminalBar.ContextMenu = CreateTerminalBarContextMenu();
+        tabBar.ContextMenu = CreateTabBarContextMenu();
 
         _content = new Grid();
-        SetRow(_content, 1);
-        Children.Add(terminalBar);
-        Children.Add(_content);
+        Grid.SetRow(_content, 1);
+
+        Grid root = new();
+        root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        root.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+        root.Children.Add(tabBar);
+        root.Children.Add(_content);
+        View = root;
     }
 
-    internal GroupTabHeader Header { get; }
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    internal Control View { get; }
 
     internal int SessionCount => _sessions.Count;
 
-    internal void HeaderSelected()
+    public string Title
     {
-        _window.SelectGroup(this);
+        get => _title;
+        set
+        {
+            if (_title == value)
+            {
+                return;
+            }
+
+            _title = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Title)));
+        }
+    }
+
+    public string CloseToolTip => "Close group";
+
+    public void RequestClose()
+    {
+        _window.CloseGroup(this);
+    }
+
+    public ContextMenu CreateContextMenu()
+    {
+        MenuItem newGroup = new() { Header = "New group" };
+        newGroup.Click += (_, _) => RequestNewGroup();
+        MenuItem renameGroup = new() { Header = "Rename group" };
+        renameGroup.Click += async (_, _) => await RenameAsync();
+        MenuItem closeGroup = new() { Header = "Close group" };
+        closeGroup.Click += (_, _) => RequestClose();
+
+        ContextMenu menu = new() { ItemsSource = new object[] { newGroup, new Separator(), renameGroup, closeGroup } };
+        menu.Opening += (_, _) => _window.SelectGroup(this);
+        return menu;
+    }
+
+    public void AttachHeaderBehavior(Control header)
+    {
+        header.DoubleTapped += async (_, e) =>
+        {
+            if (e.Source is Button)
+            {
+                return;
+            }
+
+            e.Handled = true;
+            await RenameAsync();
+        };
+
+        DragDrop.SetAllowDrop(header, true);
+        DragDrop.AddDragEnterHandler(header, (_, e) =>
+        {
+            if (e.DataTransfer.TryGetValue(MainWindow.TerminalDragFormat) is null)
+            {
+                return;
+            }
+
+            _window.SelectGroup(this);
+            e.DragEffects = DragDropEffects.Move;
+            e.Handled = true;
+        });
+        DragDrop.AddDragOverHandler(header, (_, e) =>
+        {
+            e.DragEffects = e.DataTransfer.TryGetValue(MainWindow.TerminalDragFormat) is null ? DragDropEffects.None : DragDropEffects.Move;
+            e.Handled = true;
+        });
+        DragDrop.AddDropHandler(header, (_, e) =>
+        {
+            TerminalSession? dragged = e.DataTransfer.TryGetValue(MainWindow.TerminalDragFormat);
+            if (dragged is not null)
+            {
+                AcceptDrop(dragged, null);
+                e.DragEffects = DragDropEffects.Move;
+            }
+
+            e.Handled = true;
+        });
     }
 
     internal async Task AddTerminalAsync()
@@ -81,7 +168,6 @@ internal sealed class TerminalGroup : Grid
         session.Owner = this;
         int index = before is null ? _sessions.Count : Math.Max(0, _sessions.IndexOf(before));
         _sessions.Insert(index, session);
-        _headers.Children.Insert(index, session.Header);
         _content.Children.Add(session.Control);
         session.Exited += OnSessionExited;
     }
@@ -94,14 +180,8 @@ internal sealed class TerminalGroup : Grid
         }
 
         session.Exited -= OnSessionExited;
-        _headers.Children.Remove(session.Header);
         _content.Children.Remove(session.Control);
-
-        if (_currentSession == session)
-        {
-            _currentSession = _sessions.FirstOrDefault();
-            UpdateSelection();
-        }
+        UpdateSelection();
     }
 
     internal void MoveSessionBefore(TerminalSession session, TerminalSession? before)
@@ -118,15 +198,12 @@ internal sealed class TerminalGroup : Grid
             return;
         }
 
-        _sessions.RemoveAt(currentIndex);
-        _headers.Children.RemoveAt(currentIndex);
         if (currentIndex < destinationIndex)
         {
             destinationIndex--;
         }
 
-        _sessions.Insert(destinationIndex, session);
-        _headers.Children.Insert(destinationIndex, session.Header);
+        _sessions.Move(currentIndex, destinationIndex);
         SelectSession(session);
     }
 
@@ -137,21 +214,21 @@ internal sealed class TerminalGroup : Grid
             return;
         }
 
-        _currentSession = session;
+        _tabs.SelectedItem = session;
         UpdateSelection();
         Dispatcher.UIThread.Post(() => session.Control.Focus(), DispatcherPriority.Input);
     }
 
     internal void FocusCurrentTerminal()
     {
-        _currentSession?.Control.Focus();
+        CurrentSession?.Control.Focus();
     }
 
     internal void CloseCurrentTerminal()
     {
-        if (_currentSession is not null)
+        if (CurrentSession is TerminalSession session)
         {
-            CloseTerminal(_currentSession);
+            CloseTerminal(session);
         }
     }
 
@@ -165,7 +242,6 @@ internal sealed class TerminalGroup : Grid
 
         session.Exited -= OnSessionExited;
         _sessions.RemoveAt(index);
-        _headers.Children.Remove(session.Header);
         _content.Children.Remove(session.Control);
         session.Close();
 
@@ -178,9 +254,7 @@ internal sealed class TerminalGroup : Grid
             return;
         }
 
-        _currentSession = _sessions[Math.Min(index, _sessions.Count - 1)];
-        UpdateSelection();
-        FocusCurrentTerminal();
+        SelectSession(_sessions[Math.Min(index, _sessions.Count - 1)]);
     }
 
     internal void CloseAllTerminals()
@@ -193,9 +267,7 @@ internal sealed class TerminalGroup : Grid
         }
 
         _sessions.Clear();
-        _headers.Children.Clear();
         _content.Children.Clear();
-        _currentSession = null;
     }
 
     internal void SelectNextTerminal()
@@ -210,10 +282,10 @@ internal sealed class TerminalGroup : Grid
 
     internal async Task RenameAsync()
     {
-        string? title = await TextPromptWindow.ShowAsync(_window, "Rename group", "Group name:", Header.Title);
+        string? title = await TextPromptWindow.ShowAsync(_window, "Rename group", "Group name:", Title);
         if (!string.IsNullOrWhiteSpace(title))
         {
-            Header.Title = title.Trim();
+            Title = title.Trim();
         }
     }
 
@@ -231,14 +303,25 @@ internal sealed class TerminalGroup : Grid
         _ = _window.AddGroupAsync();
     }
 
-    internal void RequestClose()
-    {
-        _window.CloseGroup(this);
-    }
-
     internal void AcceptDrop(TerminalSession session, TerminalSession? before)
     {
         _window.MoveSession(session, this, before);
+    }
+
+    private TerminalSession? CurrentSession => _tabs.SelectedItem as TerminalSession;
+
+    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingSelection)
+        {
+            return;
+        }
+
+        UpdateSelection();
+        if (CurrentSession is TerminalSession session)
+        {
+            Dispatcher.UIThread.Post(() => session.Control.Focus(), DispatcherPriority.Input);
+        }
     }
 
     private void OnSessionExited(TerminalSession session)
@@ -248,27 +331,38 @@ internal sealed class TerminalGroup : Grid
 
     private void SelectRelativeTerminal(int offset)
     {
-        if (_sessions.Count < 2 || _currentSession is null)
+        if (_sessions.Count < 2 || CurrentSession is not TerminalSession current)
         {
             return;
         }
 
-        int currentIndex = _sessions.IndexOf(_currentSession);
+        int currentIndex = _sessions.IndexOf(current);
         int index = (currentIndex + offset + _sessions.Count) % _sessions.Count;
         SelectSession(_sessions[index]);
     }
 
     private void UpdateSelection()
     {
-        foreach (TerminalSession session in _sessions)
+        _updatingSelection = true;
+        try
         {
-            bool selected = session == _currentSession;
-            session.Control.IsVisible = selected;
-            session.Header.SetSelected(selected);
+            if (CurrentSession is null && _sessions.Count > 0)
+            {
+                _tabs.SelectedItem = _sessions[0];
+            }
+
+            foreach (TerminalSession session in _sessions)
+            {
+                session.Control.IsVisible = session == CurrentSession;
+            }
+        }
+        finally
+        {
+            _updatingSelection = false;
         }
     }
 
-    private ContextMenu CreateTerminalBarContextMenu()
+    private ContextMenu CreateTabBarContextMenu()
     {
         MenuItem newTerminal = new() { Header = "New terminal" };
         newTerminal.Click += async (_, _) => await AddTerminalAsync();

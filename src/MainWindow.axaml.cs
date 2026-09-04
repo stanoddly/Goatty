@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -10,16 +11,19 @@ public sealed partial class MainWindow : Window
 {
     internal static readonly DataFormat<TerminalSession> TerminalDragFormat = DataFormat.CreateInProcessFormat<TerminalSession>("goatty-terminal-session");
 
-    private readonly List<TerminalGroup> _groups = [];
-    private TerminalGroup? _currentGroup;
+    private readonly ObservableCollection<TerminalGroup> _groups = [];
     private int _nextGroupNumber = 1;
     private bool _initialized;
     private bool _closing;
+    private bool _updatingSelection;
 
     public MainWindow()
     {
         InitializeComponent();
 
+        GroupTabs.ItemsSource = _groups;
+        GroupTabs.ItemTemplate = TabHeader.Template;
+        GroupTabs.SelectionChanged += OnGroupSelectionChanged;
         GroupBar.ContextMenu = CreateGroupBarContextMenu();
         GroupBar.DoubleTapped += OnGroupBarDoubleTapped;
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
@@ -31,8 +35,7 @@ public sealed partial class MainWindow : Window
     {
         TerminalGroup group = new(this, CreateGroupName());
         _groups.Add(group);
-        GroupHeaders.Children.Add(group.Header);
-        GroupContent.Children.Add(group);
+        GroupContent.Children.Add(group.View);
         UpdateGroupBarVisibility();
         SelectGroup(group);
         await group.AddTerminalAsync();
@@ -48,8 +51,7 @@ public sealed partial class MainWindow : Window
         int index = _groups.IndexOf(group);
         group.CloseAllTerminals();
         _groups.Remove(group);
-        GroupHeaders.Children.Remove(group.Header);
-        GroupContent.Children.Remove(group);
+        GroupContent.Children.Remove(group.View);
 
         if (_groups.Count == 0)
         {
@@ -69,14 +71,8 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        _currentGroup = group;
-        foreach (TerminalGroup candidate in _groups)
-        {
-            bool selected = candidate == group;
-            candidate.IsVisible = selected;
-            candidate.Header.SetSelected(selected);
-        }
-
+        GroupTabs.SelectedItem = group;
+        UpdateGroupVisibility();
         Dispatcher.UIThread.Post(group.FocusCurrentTerminal, DispatcherPriority.Input);
     }
 
@@ -94,7 +90,7 @@ public sealed partial class MainWindow : Window
         destination.AttachSession(session, before);
         SelectGroup(destination);
         destination.SelectSession(session);
-        destination.UpdateLayout();
+        destination.View.UpdateLayout();
         session.Control.EndReparent();
 
         if (source.SessionCount == 0)
@@ -146,9 +142,9 @@ public sealed partial class MainWindow : Window
         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.T)
         {
             e.Handled = true;
-            if (_currentGroup is not null)
+            if (CurrentGroup is TerminalGroup group)
             {
-                _ = _currentGroup.AddTerminalAsync();
+                _ = group.AddTerminalAsync();
             }
             return;
         }
@@ -156,21 +152,21 @@ public sealed partial class MainWindow : Window
         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.W)
         {
             e.Handled = true;
-            _currentGroup?.CloseCurrentTerminal();
+            CurrentGroup?.CloseCurrentTerminal();
             return;
         }
 
         if (e.Key == Key.Tab && e.KeyModifiers == KeyModifiers.Control)
         {
             e.Handled = true;
-            _currentGroup?.SelectNextTerminal();
+            CurrentGroup?.SelectNextTerminal();
             return;
         }
 
         if (e.Key == Key.Tab && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift))
         {
             e.Handled = true;
-            _currentGroup?.SelectPreviousTerminal();
+            CurrentGroup?.SelectPreviousTerminal();
         }
     }
 
@@ -197,5 +193,42 @@ public sealed partial class MainWindow : Window
     private void UpdateGroupBarVisibility()
     {
         GroupBar.IsVisible = _groups.Count > 1;
+    }
+
+    private TerminalGroup? CurrentGroup => GroupTabs.SelectedItem as TerminalGroup;
+
+    private void OnGroupSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingSelection)
+        {
+            return;
+        }
+
+        UpdateGroupVisibility();
+        if (CurrentGroup is TerminalGroup group)
+        {
+            Dispatcher.UIThread.Post(group.FocusCurrentTerminal, DispatcherPriority.Input);
+        }
+    }
+
+    private void UpdateGroupVisibility()
+    {
+        _updatingSelection = true;
+        try
+        {
+            if (CurrentGroup is null && _groups.Count > 0)
+            {
+                GroupTabs.SelectedItem = _groups[0];
+            }
+
+            foreach (TerminalGroup candidate in _groups)
+            {
+                candidate.View.IsVisible = candidate == CurrentGroup;
+            }
+        }
+        finally
+        {
+            _updatingSelection = false;
+        }
     }
 }

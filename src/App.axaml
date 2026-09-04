@@ -2,8 +2,30 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Goatty.App"
              RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <!-- Fluent sizes tab headers for document tabs; terminal tabs need to sit close to the terminal's own text size. -->
+    <x:Double x:Key="TabItemHeaderFontSize">13</x:Double>
+    <x:Double x:Key="TabItemMinHeight">28</x:Double>
+    <Thickness x:Key="TabItemHeaderMargin">8,0,4,0</Thickness>
+
+    <!-- Fluent marks a selected tab with an accent underline only, which needs the bars to sit on their own surface to read. -->
+    <SolidColorBrush x:Key="TerminalBackgroundBrush">#2E3440</SolidColorBrush>
+    <SolidColorBrush x:Key="TabBarBrush">#3B4252</SolidColorBrush>
+    <SolidColorBrush x:Key="TabBarBorderBrush">#2E3440</SolidColorBrush>
+    <SolidColorBrush x:Key="TabHoverBrush">#434C5E</SolidColorBrush>
+    <SolidColorBrush x:Key="TabSelectedBrush">#4C566A</SolidColorBrush>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme />
+    <Style Selector="TabStrip">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="TabStripItem:pointerover">
+      <Setter Property="Background" Value="{DynamicResource TabHoverBrush}" />
+    </Style>
+    <Style Selector="TabStripItem:selected">
+      <Setter Property="Background" Value="{DynamicResource TabSelectedBrush}" />
+    </Style>
     <Style Selector="Button.tab-close">
       <Setter Property="Width" Value="24" />
       <Setter Property="Height" Value="24" />

@@ -6,11 +6,12 @@
         Height="700"
         MinWidth="480"
         MinHeight="320"
-        Background="#2E3440">
+        Background="{DynamicResource TerminalBackgroundBrush}">
   <Grid RowDefinitions="Auto,*">
-    <Border x:Name="GroupBar" IsVisible="False" Background="#3B4252" Padding="4,2">
+    <Border x:Name="GroupBar" IsVisible="False" Background="{DynamicResource TabBarBrush}"
+            BorderBrush="{DynamicResource TabBarBorderBrush}" BorderThickness="0,0,0,1">
       <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-        <StackPanel x:Name="GroupHeaders" Orientation="Horizontal" Spacing="3" />
+        <TabStrip x:Name="GroupTabs" />
       </ScrollViewer>
     </Border>
     <Grid x:Name="GroupContent" Grid.Row="1" />
