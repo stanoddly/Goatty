@@ -5,7 +5,7 @@
   <Application.Resources>
     <!-- Fluent sizes tab headers for document tabs; terminal tabs need to sit close to the terminal's own text size. -->
     <x:Double x:Key="TabItemHeaderFontSize">13</x:Double>
-    <x:Double x:Key="TabItemMinHeight">28</x:Double>
+    <x:Double x:Key="TabStripItemMinHeight">28</x:Double>
     <Thickness x:Key="TabItemHeaderMargin">8,0,4,0</Thickness>
 
     <!-- Fluent marks a selected tab with an accent underline only, which needs the bars to sit on their own surface to read. -->
