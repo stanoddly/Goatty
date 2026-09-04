@@ -3,7 +3,6 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Threading;
@@ -15,6 +14,7 @@ internal sealed class TerminalGroup : ITabItem
     private readonly MainWindow _window;
     private readonly TabStrip _tabs;
     private readonly Grid _content;
+    private readonly Panel _barContent;
     private readonly ObservableCollection<TerminalSession> _sessions = [];
     private string _title;
     private int _nextTerminalNumber = 1;
@@ -35,20 +35,23 @@ internal sealed class TerminalGroup : ITabItem
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled
         };
+        tabScroller.Classes.Add("tab-scroller");
 
-        Button addButton = new() { Content = "+" };
+        Button addButton = new() { Content = "+", VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(addButton, "New terminal (Ctrl+T)");
-        addButton.Classes.Add("new-terminal");
+        addButton.Classes.Add("terminal-text");
         addButton.Click += async (_, _) => await AddTerminalAsync();
 
-        DockPanel tabBarContent = new();
-        DockPanel.SetDock(addButton, Dock.Right);
-        tabBarContent.Children.Add(addButton);
-        tabBarContent.Children.Add(tabScroller);
+        // Two auto columns keep the plus sign directly after the last tab, and hand it the space the scrolling tabs give up.
+        Grid tabLine = new() { ColumnDefinitions = new ColumnDefinitions("Auto,Auto") };
+        Grid.SetColumn(addButton, 1);
+        tabLine.Children.Add(tabScroller);
+        tabLine.Children.Add(addButton);
 
-        Border tabBar = new() { Child = tabBarContent, BorderThickness = new Thickness(0, 0, 0, 1) };
-        tabBar[!Border.BackgroundProperty] = tabBar.GetResourceObservable("TabBarBrush").ToBinding();
-        tabBar[!Border.BorderBrushProperty] = tabBar.GetResourceObservable("TabBarBorderBrush").ToBinding();
+        _barContent = new Panel();
+        _barContent.Children.Add(tabLine);
+
+        Border tabBar = new() { Child = _barContent, Padding = new Thickness(8, 3, WindowChrome.ControlsWidth, 3) };
         tabBar.DoubleTapped += async (_, e) =>
         {
             if (e.Source is not Button)
@@ -58,6 +61,7 @@ internal sealed class TerminalGroup : ITabItem
             }
         };
         tabBar.ContextMenu = CreateTabBarContextMenu();
+        WindowChrome.AttachMoveHandle(window, tabBar);
 
         _content = new Grid();
         Grid.SetRow(_content, 1);
@@ -282,20 +286,24 @@ internal sealed class TerminalGroup : ITabItem
 
     internal async Task RenameAsync()
     {
-        string? title = await TextPromptWindow.ShowAsync(_window, "Rename group", "Group name:", Title);
+        string? title = await InlinePrompt.ShowAsync(_window.VisibleGroupBarContent ?? _barContent, "(rename-session)", Title);
         if (!string.IsNullOrWhiteSpace(title))
         {
             Title = title.Trim();
         }
+
+        FocusCurrentTerminal();
     }
 
     internal async Task RenameTerminalAsync(TerminalSession session)
     {
-        string? title = await TextPromptWindow.ShowAsync(_window, "Rename terminal", "Terminal name:", session.Title);
+        string? title = await InlinePrompt.ShowAsync(_barContent, "(rename-window)", session.Title);
         if (!string.IsNullOrWhiteSpace(title))
         {
             session.SetManualTitle(title.Trim());
         }
+
+        FocusCurrentTerminal();
     }
 
     internal void RequestNewGroup()

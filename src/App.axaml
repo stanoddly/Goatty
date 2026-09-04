@@ -3,55 +3,173 @@
              x:Class="Goatty.App"
              RequestedThemeVariant="Dark">
   <Application.Resources>
-    <!-- Fluent sizes tab headers for document tabs; terminal tabs need to sit close to the terminal's own text size. -->
-    <x:Double x:Key="TabItemHeaderFontSize">13</x:Double>
-    <x:Double x:Key="TabStripItemMinHeight">28</x:Double>
-    <Thickness x:Key="TabItemHeaderMargin">8,0,4,0</Thickness>
-    <!-- The selected tab already carries a background, so Fluent's accent pipe is redundant. -->
-    <x:Double x:Key="TabStripItemPipeThickness">0</x:Double>
+    <!-- The chrome pretends to be terminal output, so it shares the terminal's typography and Nord palette. -->
+    <FontFamily x:Key="TerminalFontFamily">JetBrains Mono, Cascadia Mono, Adwaita Mono, Noto Sans Mono, DejaVu Sans Mono, Liberation Mono, Menlo, Consolas, monospace</FontFamily>
+    <x:Double x:Key="TerminalFontSize">13</x:Double>
 
-    <!-- Fluent marks a selected tab with an accent underline only, which needs the bars to sit on their own surface to read. -->
     <SolidColorBrush x:Key="TerminalBackgroundBrush">#2E3440</SolidColorBrush>
-    <SolidColorBrush x:Key="TabBarBrush">#3B4252</SolidColorBrush>
-    <SolidColorBrush x:Key="TabBarBorderBrush">#2E3440</SolidColorBrush>
+    <SolidColorBrush x:Key="TerminalForegroundBrush">#D8DEE9</SolidColorBrush>
+    <SolidColorBrush x:Key="TerminalBrightBrush">#ECEFF4</SolidColorBrush>
+    <SolidColorBrush x:Key="TerminalDimBrush">#6B7A94</SolidColorBrush>
+    <SolidColorBrush x:Key="TerminalAccentBrush">#88C0D0</SolidColorBrush>
+    <SolidColorBrush x:Key="TerminalSelectionBrush">#665E81AC</SolidColorBrush>
 
+    <!-- Nothing in the chrome is a surface, so every rounded corner and accent pipe Fluent would draw is flattened away. -->
+    <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
+    <CornerRadius x:Key="OverlayCornerRadius">0</CornerRadius>
+    <x:Double x:Key="TabStripItemPipeThickness">0</x:Double>
+    <x:Double x:Key="TabStripItemMinHeight">0</x:Double>
+    <Thickness x:Key="TabItemHeaderMargin">0</Thickness>
     <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselected">Transparent</SolidColorBrush>
-    <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselectedPointerOver">#434C5E</SolidColorBrush>
-    <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselectedPressed">#434C5E</SolidColorBrush>
-    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelected">#4C566A</SolidColorBrush>
-    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelectedPointerOver">#4C566A</SolidColorBrush>
-    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelectedPressed">#4C566A</SolidColorBrush>
-
-    <SolidColorBrush x:Key="TabCloseGlyphBrush">#A3ADC2</SolidColorBrush>
-    <SolidColorBrush x:Key="TabCloseGlyphPointerOverBrush">#ECEFF4</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselectedPointerOver">Transparent</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselectedPressed">Transparent</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelected">Transparent</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelectedPointerOver">Transparent</SolidColorBrush>
+    <SolidColorBrush x:Key="TabItemHeaderBackgroundSelectedPressed">Transparent</SolidColorBrush>
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
+
+    <!-- FontFamily inherits, so setting it on the window makes menus, prompts and tabs share the terminal's face. -->
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="{DynamicResource TerminalFontFamily}" />
+      <Setter Property="FontSize" Value="{DynamicResource TerminalFontSize}" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalForegroundBrush}" />
+    </Style>
+
     <Style Selector="TabStrip">
       <Setter Property="Background" Value="Transparent" />
     </Style>
-    <Style Selector="Button.tab-close">
-      <Setter Property="Width" Value="24" />
-      <Setter Property="Height" Value="24" />
+    <Style Selector="TabStripItem">
+      <Setter Property="Background" Value="Transparent" />
       <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="{DynamicResource TerminalFontSize}" />
     </Style>
-    <!-- Fluent paints the button's own template child, so the hover and pressed surfaces have to be cleared there rather than on the button. -->
-    <Style Selector="Button.tab-close /template/ ContentPresenter#PART_ContentPresenter">
+
+    <!-- A tab is text: unselected tabs recede, the selected one is the only bright, bold run on the line. -->
+    <Style Selector="TabStripItem TextBlock.tab-text">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalDimBrush}" />
+    </Style>
+    <Style Selector="TabStripItem:pointerover TextBlock.tab-text">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalForegroundBrush}" />
+    </Style>
+    <Style Selector="TabStripItem:selected TextBlock.tab-title">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalBrightBrush}" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="TabStripItem:selected TextBlock.tab-bracket">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalAccentBrush}" />
+    </Style>
+
+    <!-- The close glyph occupies its cell at all times so revealing it on hover cannot reflow the line. -->
+    <Style Selector="Button.tab-close">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalDimBrush}" />
+    </Style>
+    <Style Selector="TabStripItem:pointerover Button.tab-close">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="Button.tab-close:pointerover">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalBrightBrush}" />
+    </Style>
+
+    <Style Selector="TextBlock.terminal-dim">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalDimBrush}" />
+    </Style>
+
+    <Style Selector="Button.terminal-text">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="4,1" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalDimBrush}" />
+    </Style>
+    <Style Selector="Button.terminal-text:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalBrightBrush}" />
+    </Style>
+    <!-- Fluent paints the button's own template child, so its hover and pressed surfaces have to be cleared there. -->
+    <Style Selector="Button.terminal-text /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
     </Style>
-    <Style Selector="Button.tab-close > Path">
-      <Setter Property="Stroke" Value="{DynamicResource TabCloseGlyphBrush}" />
+    <Style Selector="Button.window-control:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalBrightBrush}" />
     </Style>
-    <Style Selector="Button.tab-close:pointerover > Path, Button.tab-close:pressed > Path">
-      <Setter Property="Stroke" Value="{DynamicResource TabCloseGlyphPointerOverBrush}" />
+    <Style Selector="Button.window-close:pointerover">
+      <Setter Property="Foreground" Value="#BF616A" />
     </Style>
-    <Style Selector="Button.new-terminal">
-      <Setter Property="Width" Value="32" />
-      <Setter Property="Height" Value="28" />
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="FontSize" Value="18" />
+
+    <!-- Popups root outside the window, so they have to be told the terminal's typography rather than inheriting it. -->
+    <Style Selector="ContextMenu, MenuItem, ToolTip">
+      <Setter Property="FontFamily" Value="{DynamicResource TerminalFontFamily}" />
+      <Setter Property="FontSize" Value="{DynamicResource TerminalFontSize}" />
+    </Style>
+
+    <!-- Menus read as TUI popups: a hairline box on the terminal background, with reverse video for the highlight. -->
+    <Style Selector="ContextMenu">
+      <Setter Property="Background" Value="{DynamicResource TerminalBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TerminalDimBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="0,2" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalForegroundBrush}" />
+    </Style>
+    <Style Selector="MenuItem">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalForegroundBrush}" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="MenuItem /template/ Border#PART_LayoutRoot">
       <Setter Property="Background" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="MenuItem:pointerover /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource TerminalForegroundBrush}" />
+    </Style>
+    <Style Selector="MenuItem:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalBackgroundBrush}" />
+    </Style>
+    <Style Selector="ContextMenu Separator">
+      <Setter Property="Background" Value="{DynamicResource TerminalDimBrush}" />
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Margin" Value="0,2" />
+    </Style>
+
+    <Style Selector="ToolTip">
+      <Setter Property="Background" Value="{DynamicResource TerminalBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TerminalDimBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalForegroundBrush}" />
+    </Style>
+
+    <!-- The rename prompt is a status line editor, so the TextBox has to lose every trace of a box. -->
+    <Style Selector="TextBox.terminal-input">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalBrightBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource TerminalBrightBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource TerminalSelectionBrush}" />
+      <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TerminalBrightBrush}" />
+    </Style>
+    <Style Selector="TextBox.terminal-input /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <Style Selector="ScrollViewer.tab-scroller ScrollBar">
+      <Setter Property="IsVisible" Value="False" />
     </Style>
   </Application.Styles>
 </Application>

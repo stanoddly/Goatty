@@ -39,7 +39,8 @@ internal sealed class TerminalSession : ITabItem
         {
             Process = string.Empty,
             StartingDirectory = _startingDirectory,
-            FontSize = 13,
+            FontFamily = (FontFamily)Application.Current!.FindResource("TerminalFontFamily")!,
+            FontSize = (double)Application.Current!.FindResource("TerminalFontSize")!,
             BufferSize = 10000,
             Background = Brush.Parse("#2E3440"),
             Foreground = Brush.Parse("#D8DEE9"),
