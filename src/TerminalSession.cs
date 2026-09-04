@@ -1,4 +1,7 @@
+using System.ComponentModel;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Iciclecreek.Terminal;
@@ -6,7 +9,7 @@ using XTerm.Options;
 
 namespace Goatty;
 
-internal sealed class TerminalSession
+internal sealed class TerminalSession : ITabItem
 {
     private readonly string _initialTitle;
     private readonly string _startingDirectory;
@@ -15,6 +18,9 @@ internal sealed class TerminalSession
     private string? _applicationTitle;
     private string? _manualTitle;
     private bool _closed;
+    private PointerPressedEventArgs? _dragPointerPressed;
+    private Point _dragStart;
+    private bool _dragging;
 
     internal TerminalSession(TerminalGroup owner, string initialTitle)
     {
@@ -42,7 +48,6 @@ internal sealed class TerminalSession
             Options = options
         };
 
-        Header = new TerminalTabHeader(this);
         Control.ProcessExited += OnProcessExited;
         Control.PropertyChanged += OnControlPropertyChanged;
         TerminalView.AddTitleChangedHandler(Control, OnTitleChanged);
@@ -53,13 +58,15 @@ internal sealed class TerminalSession
 
     internal event Action<TerminalSession>? Exited;
 
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     internal TerminalGroup Owner { get; set; }
 
     internal TerminalControl Control { get; }
 
-    internal TerminalTabHeader Header { get; }
+    public string Title { get; private set; }
 
-    internal string Title { get; private set; }
+    public string CloseToolTip => "Close terminal (Ctrl+W)";
 
     internal bool HasManualTitle => _manualTitle is not null;
 
@@ -100,6 +107,112 @@ internal sealed class TerminalSession
         {
             Control.Kill();
         }
+    }
+
+    public void RequestClose()
+    {
+        Owner.CloseTerminal(this);
+    }
+
+    public ContextMenu CreateContextMenu()
+    {
+        MenuItem newTerminal = new() { Header = "New terminal" };
+        newTerminal.Click += async (_, _) => await Owner.AddTerminalAsync();
+        MenuItem newGroup = new() { Header = "New group" };
+        newGroup.Click += (_, _) => Owner.RequestNewGroup();
+        MenuItem renameTerminal = new() { Header = "Rename terminal" };
+        renameTerminal.Click += async (_, _) => await Owner.RenameTerminalAsync(this);
+        MenuItem resetTitle = new() { Header = "Reset terminal name" };
+        resetTitle.Click += (_, _) => ResetTitle();
+        MenuItem renameGroup = new() { Header = "Rename group" };
+        renameGroup.Click += async (_, _) => await Owner.RenameAsync();
+        MenuItem closeGroup = new() { Header = "Close group" };
+        closeGroup.Click += (_, _) => Owner.RequestClose();
+
+        ContextMenu menu = new() { ItemsSource = new object[] { newTerminal, newGroup, new Separator(), renameTerminal, resetTitle, new Separator(), renameGroup, closeGroup } };
+        menu.Opening += (_, _) =>
+        {
+            Owner.SelectSession(this);
+            resetTitle.IsEnabled = HasManualTitle;
+        };
+        return menu;
+    }
+
+    public void AttachHeaderBehavior(Control header)
+    {
+        header.PointerPressed += (_, e) =>
+        {
+            PointerPointProperties properties = e.GetCurrentPoint(header).Properties;
+            if (properties.IsLeftButtonPressed || properties.IsRightButtonPressed)
+            {
+                Owner.SelectSession(this);
+            }
+
+            if (properties.IsLeftButtonPressed && e.Source is not Button)
+            {
+                _dragPointerPressed = e;
+                _dragStart = e.GetPosition(header);
+            }
+        };
+
+        header.PointerMoved += async (_, e) =>
+        {
+            if (_dragging || _dragPointerPressed is null || !e.GetCurrentPoint(header).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            Vector distance = e.GetPosition(header) - _dragStart;
+            if (Math.Abs(distance.X) < 8 && Math.Abs(distance.Y) < 8)
+            {
+                return;
+            }
+
+            _dragging = true;
+            DataTransfer transfer = new();
+            transfer.Add(DataTransferItem.Create(MainWindow.TerminalDragFormat, this));
+            await DragDrop.DoDragDropAsync(_dragPointerPressed, transfer, DragDropEffects.Move);
+            _dragPointerPressed = null;
+            _dragging = false;
+        };
+
+        header.PointerReleased += (_, _) =>
+        {
+            if (!_dragging)
+            {
+                _dragPointerPressed = null;
+            }
+        };
+
+        header.DoubleTapped += async (_, e) =>
+        {
+            if (e.Source is Button)
+            {
+                return;
+            }
+
+            e.Handled = true;
+            await Owner.RenameTerminalAsync(this);
+        };
+
+        DragDrop.SetAllowDrop(header, true);
+        DragDrop.AddDragOverHandler(header, (_, e) =>
+        {
+            TerminalSession? dragged = e.DataTransfer.TryGetValue(MainWindow.TerminalDragFormat);
+            e.DragEffects = dragged is null || dragged == this ? DragDropEffects.None : DragDropEffects.Move;
+            e.Handled = true;
+        });
+        DragDrop.AddDropHandler(header, (_, e) =>
+        {
+            TerminalSession? dragged = e.DataTransfer.TryGetValue(MainWindow.TerminalDragFormat);
+            if (dragged is not null && dragged != this)
+            {
+                Owner.AcceptDrop(dragged, this);
+                e.DragEffects = DragDropEffects.Move;
+            }
+
+            e.Handled = true;
+        });
     }
 
     private static string ResolveShell()
@@ -196,7 +309,7 @@ internal sealed class TerminalSession
         }
 
         Title = title;
-        Header.UpdateTitle(title);
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Title)));
     }
 
     private static string GetDirectoryName(string? path)
