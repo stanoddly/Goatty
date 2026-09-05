@@ -8,6 +8,7 @@
     <x:Double x:Key="TerminalFontSize">13</x:Double>
 
     <SolidColorBrush x:Key="TerminalBackgroundBrush">#2E3440</SolidColorBrush>
+    <SolidColorBrush x:Key="TerminalSurfaceBrush">#3B4252</SolidColorBrush>
     <SolidColorBrush x:Key="TerminalForegroundBrush">#D8DEE9</SolidColorBrush>
     <SolidColorBrush x:Key="TerminalBrightBrush">#ECEFF4</SolidColorBrush>
     <SolidColorBrush x:Key="TerminalDimBrush">#6B7A94</SolidColorBrush>
@@ -20,6 +21,8 @@
     <x:Double x:Key="TabStripItemPipeThickness">0</x:Double>
     <x:Double x:Key="TabStripItemMinHeight">0</x:Double>
     <Thickness x:Key="TabItemHeaderMargin">0</Thickness>
+    <!-- The menu's scroller sits inside the template, out of reach of a selector, so its own vertical padding has to be cleared here. -->
+    <Thickness x:Key="MenuFlyoutScrollerMargin">0</Thickness>
     <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselected">Transparent</SolidColorBrush>
     <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselectedPointerOver">Transparent</SolidColorBrush>
     <SolidColorBrush x:Key="TabItemHeaderBackgroundUnselectedPressed">Transparent</SolidColorBrush>
@@ -109,13 +112,12 @@
       <Setter Property="FontSize" Value="{DynamicResource TerminalFontSize}" />
     </Style>
 
-    <!-- Menus read as TUI popups: a hairline box on the terminal background, with reverse video for the highlight. -->
+    <!-- Menus read as TUI popups: no frame at all, just a slightly lifted block of background, with reverse video for the highlight. -->
     <Style Selector="ContextMenu">
-      <Setter Property="Background" Value="{DynamicResource TerminalBackgroundBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource TerminalDimBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource TerminalSurfaceBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="0" />
-      <Setter Property="Padding" Value="0,2" />
+      <Setter Property="Padding" Value="0" />
       <Setter Property="Foreground" Value="{DynamicResource TerminalForegroundBrush}" />
     </Style>
     <Style Selector="MenuItem">
