@@ -99,7 +99,7 @@ internal static class WindowChrome
 
     private static bool IsBarSurface(Control handle, object? source)
     {
-        return source is Control control && control.FindAncestorOfType<Button>() is null && control.FindAncestorOfType<TabStripItem>() is null && handle.IsVisualAncestorOf(control);
+        return source is Control control && control.FindAncestorOfType<Button>() is null && control.FindAncestorOfType<TabStripItem>() is null && (control == handle || handle.IsVisualAncestorOf(control));
     }
 
     private static void UpdateCursor(Window window, PointerEventArgs e)

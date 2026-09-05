@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace Goatty;
@@ -51,7 +52,8 @@ internal sealed class TerminalGroup : ITabItem
         _barContent = new Panel();
         _barContent.Children.Add(tabLine);
 
-        Border tabBar = new() { Child = _barContent, Padding = new Thickness(8, 3, WindowChrome.ControlsWidth, 3) };
+        // A brushless border is skipped by hit testing, so the bar needs a background to be pressed as the window's move handle.
+        Border tabBar = new() { Child = _barContent, Padding = new Thickness(8, 3, WindowChrome.ControlsWidth, 3), Background = Brushes.Transparent };
         tabBar.DoubleTapped += async (_, e) =>
         {
             if (e.Source is not Button)

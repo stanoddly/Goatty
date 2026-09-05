@@ -10,7 +10,8 @@
         Background="{DynamicResource TerminalBackgroundBrush}">
   <Panel>
     <Grid RowDefinitions="Auto,*">
-      <Border x:Name="GroupBar" IsVisible="False">
+      <!-- A brushless border is skipped by hit testing, so the bar needs a background to be pressed as the window's move handle. -->
+      <Border x:Name="GroupBar" IsVisible="False" Background="Transparent">
         <Panel x:Name="GroupBarContent">
           <ScrollViewer Classes="tab-scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <TabStrip x:Name="GroupTabs" />
