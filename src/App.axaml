@@ -14,6 +14,7 @@
     <SolidColorBrush x:Key="TerminalDimBrush">#6B7A94</SolidColorBrush>
     <SolidColorBrush x:Key="TerminalAccentBrush">#88C0D0</SolidColorBrush>
     <SolidColorBrush x:Key="TerminalSelectionBrush">#665E81AC</SolidColorBrush>
+    <SolidColorBrush x:Key="TerminalFrameBrush">#4C566A</SolidColorBrush>
 
     <!-- Nothing in the chrome is a surface, so every rounded corner and accent pipe Fluent would draw is flattened away. -->
     <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
@@ -61,9 +62,6 @@
       <Setter Property="Foreground" Value="{DynamicResource TerminalBrightBrush}" />
       <Setter Property="FontWeight" Value="Bold" />
     </Style>
-    <Style Selector="TabStripItem:selected TextBlock.tab-bracket">
-      <Setter Property="Foreground" Value="{DynamicResource TerminalAccentBrush}" />
-    </Style>
 
     <!-- The close glyph occupies its cell at all times so revealing it on hover cannot reflow the line. -->
     <Style Selector="Button.tab-close">
@@ -77,6 +75,17 @@
     <Style Selector="Button.tab-close:pointerover">
       <Setter Property="Opacity" Value="1" />
       <Setter Property="Foreground" Value="{DynamicResource TerminalBrightBrush}" />
+    </Style>
+
+    <!-- The status line is the bottom of the frame, so it stays quiet: the path leads, the process is the only accented run, the hints recede. -->
+    <Style Selector="TextBlock.status-path">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalForegroundBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status-process">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalAccentBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status-hint">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalDimBrush}" />
     </Style>
 
     <Style Selector="TextBlock.terminal-dim">

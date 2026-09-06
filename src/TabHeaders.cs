@@ -54,21 +54,13 @@ internal static class TabHeader
         closeButton.Classes.Add("tab-close");
         closeButton.Click += (_, _) => item.RequestClose();
 
-        StackPanel header = new() { Orientation = Orientation.Horizontal, Spacing = 5, Margin = new Thickness(0, 0, 10, 0) };
-        header.Children.Add(CreateBracket("["));
+        // The rule is interrupted around the whole header, so the margin has to outrun that gap for a stub of line to show between two tabs.
+        StackPanel header = new() { Orientation = Orientation.Horizontal, Spacing = 5, Margin = new Thickness(0, 0, 20, 0) };
+        TerminalFrame.SetBreaksRule(header, true);
         header.Children.Add(title);
         header.Children.Add(closeButton);
-        header.Children.Add(CreateBracket("]"));
         header.ContextMenu = item.CreateContextMenu();
         item.AttachHeaderBehavior(header);
         return header;
     });
-
-    private static TextBlock CreateBracket(string text)
-    {
-        TextBlock bracket = new() { Text = text, VerticalAlignment = VerticalAlignment.Center };
-        bracket.Classes.Add("tab-text");
-        bracket.Classes.Add("tab-bracket");
-        return bracket;
-    }
 }

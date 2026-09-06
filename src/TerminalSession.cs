@@ -15,6 +15,9 @@ internal sealed class TerminalSession : ITabItem
     private readonly string _startingDirectory;
     private readonly string _shell;
     private readonly DispatcherTimer _titleTimer;
+    private string _title;
+    private string _workingDirectory = string.Empty;
+    private string _processName = string.Empty;
     private string? _applicationTitle;
     private string? _manualTitle;
     private bool _closed;
@@ -28,7 +31,7 @@ internal sealed class TerminalSession : ITabItem
         _initialTitle = initialTitle;
         _startingDirectory = Environment.CurrentDirectory;
         _shell = ResolveShell();
-        Title = initialTitle;
+        _title = initialTitle;
 
         TerminalOptions options = new()
         {
@@ -65,7 +68,12 @@ internal sealed class TerminalSession : ITabItem
 
     internal TerminalControl Control { get; }
 
-    public string Title { get; private set; }
+    public string Title => _title;
+
+    // The status line reports where the session is and what it is running, which the title only carries in an abbreviated form.
+    internal string WorkingDirectory => _workingDirectory;
+
+    internal string ProcessName => _processName;
 
     public string CloseToolTip => "Close terminal (Ctrl+W)";
 
@@ -287,16 +295,20 @@ internal sealed class TerminalSession : ITabItem
 
     private void RefreshTitle()
     {
+        int processId = Control.IsLive ? Control.Pid : 0;
+        string? currentDirectory = LinuxProcessInfo.GetWorkingDirectory(processId) ?? Control.CurrentDirectory ?? _startingDirectory;
+        string process = LinuxProcessInfo.GetForegroundProcessName(processId) ?? Path.GetFileName(_shell);
+        Update(ref _workingDirectory, CollapseHome(currentDirectory), nameof(WorkingDirectory));
+        Update(ref _processName, process, nameof(ProcessName));
+
         if (_manualTitle is not null)
         {
             SetTitle(_manualTitle);
             return;
         }
 
-        int processId = Control.IsLive ? Control.Pid : 0;
-        string? currentDirectory = LinuxProcessInfo.GetWorkingDirectory(processId) ?? Control.CurrentDirectory ?? _startingDirectory;
         string directoryName = GetDirectoryName(currentDirectory);
-        string context = _applicationTitle ?? LinuxProcessInfo.GetForegroundProcessName(processId) ?? Path.GetFileName(_shell);
+        string context = _applicationTitle ?? process;
 
         string title = !string.IsNullOrEmpty(directoryName) && !string.IsNullOrEmpty(context) ? $"{directoryName} : {context}" : directoryName;
         SetTitle(string.IsNullOrEmpty(title) ? _initialTitle : title);
@@ -304,13 +316,35 @@ internal sealed class TerminalSession : ITabItem
 
     private void SetTitle(string title)
     {
-        if (Title == title)
+        Update(ref _title, title, nameof(Title));
+    }
+
+    private void Update(ref string field, string value, string propertyName)
+    {
+        if (field == value)
         {
             return;
         }
 
-        Title = title;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Title)));
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    private static string CollapseHome(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        string cleanPath = Path.TrimEndingDirectorySeparator(path);
+        string home = Path.TrimEndingDirectorySeparator(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        if (string.IsNullOrEmpty(home) || !cleanPath.StartsWith(home, StringComparison.Ordinal))
+        {
+            return cleanPath;
+        }
+
+        return cleanPath.Length == home.Length ? "~" : cleanPath[home.Length] == Path.DirectorySeparatorChar ? string.Concat("~", cleanPath.AsSpan(home.Length)) : cleanPath;
     }
 
     private static string GetDirectoryName(string? path)

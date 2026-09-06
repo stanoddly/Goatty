@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:goatty="clr-namespace:Goatty"
         x:Class="Goatty.MainWindow"
         Title="Goatty"
         Width="1000"
@@ -8,18 +9,20 @@
         MinHeight="320"
         WindowDecorations="None"
         Background="{DynamicResource TerminalBackgroundBrush}">
-  <Panel>
-    <Grid RowDefinitions="Auto,*">
-      <!-- A brushless border is skipped by hit testing, so the bar needs a background to be pressed as the window's move handle. -->
-      <Border x:Name="GroupBar" IsVisible="False" Background="Transparent">
-        <Panel x:Name="GroupBarContent">
-          <ScrollViewer Classes="tab-scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-            <TabStrip x:Name="GroupTabs" />
-          </ScrollViewer>
-        </Panel>
-      </Border>
-      <Grid x:Name="GroupContent" Grid.Row="1" />
-    </Grid>
-    <Panel x:Name="WindowControlsHost" HorizontalAlignment="Right" VerticalAlignment="Top" />
-  </Panel>
+  <goatty:TerminalFrame Padding="1,0" LineBrush="{DynamicResource TerminalFrameBrush}">
+    <Panel>
+      <Grid RowDefinitions="Auto,*">
+        <!-- A brushless border is skipped by hit testing, so the bar needs a background to be pressed as the window's move handle. -->
+        <Border x:Name="GroupBar" IsVisible="False" Background="Transparent" goatty:TerminalFrame.IsRule="True">
+          <Panel x:Name="GroupBarContent">
+            <ScrollViewer Classes="tab-scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <TabStrip x:Name="GroupTabs" />
+            </ScrollViewer>
+          </Panel>
+        </Border>
+        <Grid x:Name="GroupContent" Grid.Row="1" />
+      </Grid>
+      <Panel x:Name="WindowControlsHost" HorizontalAlignment="Right" VerticalAlignment="Top" />
+    </Panel>
+  </goatty:TerminalFrame>
 </Window>

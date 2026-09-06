@@ -16,7 +16,10 @@ internal sealed class TerminalGroup : ITabItem
     private readonly TabStrip _tabs;
     private readonly Grid _content;
     private readonly Panel _barContent;
+    private readonly TextBlock _statusDirectory;
+    private readonly TextBlock _statusProcess;
     private readonly ObservableCollection<TerminalSession> _sessions = [];
+    private TerminalSession? _statusSource;
     private string _title;
     private int _nextTerminalNumber = 1;
     private bool _closing;
@@ -41,6 +44,7 @@ internal sealed class TerminalGroup : ITabItem
         Button addButton = new() { Content = "+", VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(addButton, "New terminal (Ctrl+T)");
         addButton.Classes.Add("terminal-text");
+        TerminalFrame.SetBreaksRule(addButton, true);
         addButton.Click += async (_, _) => await AddTerminalAsync();
 
         // Two auto columns keep the plus sign directly after the last tab, and hand it the space the scrolling tabs give up.
@@ -53,7 +57,8 @@ internal sealed class TerminalGroup : ITabItem
         _barContent.Children.Add(tabLine);
 
         // A brushless border is skipped by hit testing, so the bar needs a background to be pressed as the window's move handle.
-        Border tabBar = new() { Child = _barContent, Padding = new Thickness(8, 3, WindowChrome.ControlsWidth, 3), Background = Brushes.Transparent };
+        Border tabBar = new() { Child = _barContent, Padding = new Thickness(14, 3, WindowChrome.ControlsWidth, 3), Background = Brushes.Transparent };
+        TerminalFrame.SetIsRule(tabBar, true);
         tabBar.DoubleTapped += async (_, e) =>
         {
             if (e.Source is not Button)
@@ -65,14 +70,38 @@ internal sealed class TerminalGroup : ITabItem
         tabBar.ContextMenu = CreateTabBarContextMenu();
         WindowChrome.AttachMoveHandle(window, tabBar);
 
-        _content = new Grid();
+        _content = new Grid { Margin = new Thickness(3, 0) };
         Grid.SetRow(_content, 1);
+
+        _statusDirectory = CreateStatusText("status-path");
+        // The path is the DockPanel's filling child, so it has to hug its text or the gap it breaks would swallow the whole line.
+        _statusDirectory.HorizontalAlignment = HorizontalAlignment.Left;
+        TerminalFrame.SetBreaksRule(_statusDirectory, true);
+        _statusProcess = CreateStatusText("status-process");
+        TextBlock hints = CreateStatusText("status-hint");
+        hints.Text = "^T new  ^W close  ^Tab switch";
+
+        StackPanel statusRight = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
+        statusRight.Children.Add(_statusProcess);
+        statusRight.Children.Add(hints);
+        TerminalFrame.SetBreaksRule(statusRight, true);
+        DockPanel.SetDock(statusRight, Dock.Right);
+
+        DockPanel statusLine = new();
+        statusLine.Children.Add(statusRight);
+        statusLine.Children.Add(_statusDirectory);
+
+        Border statusBar = new() { Child = statusLine, Padding = new Thickness(14, 3) };
+        TerminalFrame.SetIsRule(statusBar, true);
+        Grid.SetRow(statusBar, 2);
 
         Grid root = new();
         root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         root.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+        root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         root.Children.Add(tabBar);
         root.Children.Add(_content);
+        root.Children.Add(statusBar);
         View = root;
     }
 
@@ -266,6 +295,12 @@ internal sealed class TerminalGroup : ITabItem
     internal void CloseAllTerminals()
     {
         _closing = true;
+        if (_statusSource is not null)
+        {
+            _statusSource.PropertyChanged -= OnStatusSourceChanged;
+            _statusSource = null;
+        }
+
         foreach (TerminalSession session in _sessions.ToArray())
         {
             session.Exited -= OnSessionExited;
@@ -370,6 +405,57 @@ internal sealed class TerminalGroup : ITabItem
         {
             _updatingSelection = false;
         }
+
+        UpdateStatusSource();
+    }
+
+    // The status line follows whichever session is on screen, so it swaps its subscription along with the selection.
+    private void UpdateStatusSource()
+    {
+        TerminalSession? session = CurrentSession;
+        if (_statusSource == session)
+        {
+            UpdateStatus();
+            return;
+        }
+
+        if (_statusSource is not null)
+        {
+            _statusSource.PropertyChanged -= OnStatusSourceChanged;
+        }
+
+        _statusSource = session;
+        if (_statusSource is not null)
+        {
+            _statusSource.PropertyChanged += OnStatusSourceChanged;
+        }
+
+        UpdateStatus();
+    }
+
+    private void OnStatusSourceChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        UpdateStatus();
+    }
+
+    private void UpdateStatus()
+    {
+        SetStatusText(_statusDirectory, _statusSource?.WorkingDirectory);
+        SetStatusText(_statusProcess, _statusSource?.ProcessName);
+    }
+
+    // An empty run would leave a hole in the rule where no text is, so a status field with nothing to say is taken off the line entirely.
+    private static void SetStatusText(TextBlock field, string? text)
+    {
+        field.Text = text ?? string.Empty;
+        field.IsVisible = !string.IsNullOrEmpty(text);
+    }
+
+    private static TextBlock CreateStatusText(string styleClass)
+    {
+        TextBlock field = new() { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        field.Classes.Add(styleClass);
+        return field;
     }
 
     private ContextMenu CreateTabBarContextMenu()

@@ -21,7 +21,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        GroupBar.Padding = new Thickness(8, 3, WindowChrome.ControlsWidth, 3);
+        GroupBar.Padding = new Thickness(14, 3, WindowChrome.ControlsWidth, 3);
         WindowControlsHost.Children.Add(WindowChrome.CreateControls(this));
         WindowChrome.AttachResizeBorder(this);
         WindowChrome.AttachMoveHandle(this, GroupBar);
