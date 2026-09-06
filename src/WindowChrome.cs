@@ -77,6 +77,7 @@ internal static class WindowChrome
             VerticalAlignment = VerticalAlignment.Top,
             Width = ControlsWidth
         };
+        TerminalFrame.SetBreaksRule(controls, true);
 
         controls.Children.Add(CreateControl("[-]", "Minimize", () => window.WindowState = WindowState.Minimized));
         controls.Children.Add(CreateControl("[□]", "Maximize", () => window.WindowState = window.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized));

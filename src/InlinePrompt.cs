@@ -25,7 +25,9 @@ internal static class InlinePrompt
         TextBox input = new() { Text = initialValue, VerticalAlignment = VerticalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
         input.Classes.Add("terminal-input");
 
+        // The prompt takes over a bar the frame draws a rule through, so it has to break that rule the way the tabs it replaces do.
         DockPanel line = new();
+        TerminalFrame.SetBreaksRule(line, true);
         line.Children.Add(prompt);
         line.Children.Add(input);
         host.Children.Add(line);
