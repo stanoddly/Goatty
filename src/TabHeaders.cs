@@ -1,10 +1,9 @@
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Path = Avalonia.Controls.Shapes.Path;
 
 namespace Goatty;
 
@@ -39,6 +38,8 @@ internal static class TabHeader
             MaxWidth = 240,
             TextTrimming = TextTrimming.CharacterEllipsis
         };
+        title.Classes.Add("tab-text");
+        title.Classes.Add("tab-title");
         item.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(ITabItem.Title))
@@ -47,27 +48,27 @@ internal static class TabHeader
             }
         };
 
-        // The multiplication sign sits on the font's math axis rather than the centre of the button, so the cross is drawn instead.
-        Path closeGlyph = new()
-        {
-            Data = Geometry.Parse("M 0,0 L 8,8 M 8,0 L 0,8"),
-            StrokeThickness = 1,
-            Stretch = Stretch.None,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        Button closeButton = new() { Content = closeGlyph };
+        Button closeButton = new() { Content = "x", VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(closeButton, item.CloseToolTip);
+        closeButton.Classes.Add("terminal-text");
         closeButton.Classes.Add("tab-close");
         closeButton.Click += (_, _) => item.RequestClose();
-        DockPanel.SetDock(closeButton, Dock.Right);
 
-        DockPanel header = new();
-        header.Children.Add(closeButton);
+        StackPanel header = new() { Orientation = Orientation.Horizontal, Spacing = 5, Margin = new Thickness(0, 0, 10, 0) };
+        header.Children.Add(CreateBracket("["));
         header.Children.Add(title);
+        header.Children.Add(closeButton);
+        header.Children.Add(CreateBracket("]"));
         header.ContextMenu = item.CreateContextMenu();
         item.AttachHeaderBehavior(header);
         return header;
     });
+
+    private static TextBlock CreateBracket(string text)
+    {
+        TextBlock bracket = new() { Text = text, VerticalAlignment = VerticalAlignment.Center };
+        bracket.Classes.Add("tab-text");
+        bracket.Classes.Add("tab-bracket");
+        return bracket;
+    }
 }

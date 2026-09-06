@@ -6,14 +6,20 @@
         Height="700"
         MinWidth="480"
         MinHeight="320"
+        WindowDecorations="None"
         Background="{DynamicResource TerminalBackgroundBrush}">
-  <Grid RowDefinitions="Auto,*">
-    <Border x:Name="GroupBar" IsVisible="False" Background="{DynamicResource TabBarBrush}"
-            BorderBrush="{DynamicResource TabBarBorderBrush}" BorderThickness="0,0,0,1">
-      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-        <TabStrip x:Name="GroupTabs" />
-      </ScrollViewer>
-    </Border>
-    <Grid x:Name="GroupContent" Grid.Row="1" />
-  </Grid>
+  <Panel>
+    <Grid RowDefinitions="Auto,*">
+      <!-- A brushless border is skipped by hit testing, so the bar needs a background to be pressed as the window's move handle. -->
+      <Border x:Name="GroupBar" IsVisible="False" Background="Transparent">
+        <Panel x:Name="GroupBarContent">
+          <ScrollViewer Classes="tab-scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <TabStrip x:Name="GroupTabs" />
+          </ScrollViewer>
+        </Panel>
+      </Border>
+      <Grid x:Name="GroupContent" Grid.Row="1" />
+    </Grid>
+    <Panel x:Name="WindowControlsHost" HorizontalAlignment="Right" VerticalAlignment="Top" />
+  </Panel>
 </Window>

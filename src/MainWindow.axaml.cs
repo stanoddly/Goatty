@@ -21,6 +21,11 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
+        GroupBar.Padding = new Thickness(8, 3, WindowChrome.ControlsWidth, 3);
+        WindowControlsHost.Children.Add(WindowChrome.CreateControls(this));
+        WindowChrome.AttachResizeBorder(this);
+        WindowChrome.AttachMoveHandle(this, GroupBar);
+
         GroupTabs.ItemsSource = _groups;
         GroupTabs.ItemTemplate = TabHeader.Template;
         GroupTabs.SelectionChanged += OnGroupSelectionChanged;
@@ -189,6 +194,9 @@ public sealed partial class MainWindow : Window
         _nextGroupNumber++;
         return name;
     }
+
+    // A group is renamed on the group bar when it is showing, and otherwise on its own terminal bar, so the prompt always lands on a visible line.
+    internal Panel? VisibleGroupBarContent => GroupBar.IsVisible ? GroupBarContent : null;
 
     private void UpdateGroupBarVisibility()
     {
